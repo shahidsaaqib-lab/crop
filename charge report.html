@@ -1,0 +1,2018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1, viewport-fit=cover"
+    >
+
+    <title>Mobile Multiple Area Image Cropper</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            min-height: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            margin: 0;
+
+            padding:
+                max(12px, env(safe-area-inset-top))
+                max(12px, env(safe-area-inset-right))
+                max(12px, env(safe-area-inset-bottom))
+                max(12px, env(safe-area-inset-left));
+
+            font-family: Arial, sans-serif;
+            color: #172033;
+            background: #f3f4f6;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 28px;
+        }
+
+        h2 {
+            margin: 22px 0 10px;
+        }
+
+        .instructions {
+            margin-bottom: 12px;
+            padding: 12px 15px;
+
+            border-left: 5px solid #2563eb;
+            border-radius: 6px;
+
+            background: #eaf2ff;
+            line-height: 1.6;
+        }
+
+        /*
+         * Sticky responsive toolbar
+         */
+        .toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(auto-fit, minmax(130px, 1fr));
+
+            gap: 8px;
+
+            margin-bottom: 10px;
+            padding: 8px;
+
+            border: 1px solid #d7dce2;
+            border-radius: 10px;
+
+            background: rgba(243, 244, 246, 0.96);
+            backdrop-filter: blur(8px);
+        }
+
+        button,
+        .file-label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            min-height: 46px;
+            padding: 10px 13px;
+
+            border: none;
+            border-radius: 7px;
+
+            background: #2563eb;
+            color: #ffffff;
+
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+
+            cursor: pointer;
+            touch-action: manipulation;
+
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button:hover,
+        .file-label:hover {
+            background: #1d4ed8;
+        }
+
+        button:active,
+        .file-label:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .danger {
+            background: #dc2626;
+        }
+
+        .danger:hover {
+            background: #b91c1c;
+        }
+
+        .secondary {
+            background: #475569;
+        }
+
+        .secondary:hover {
+            background: #334155;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .status {
+            margin: 8px 0;
+            font-weight: 700;
+        }
+
+        /*
+         * Large image workspace
+         */
+        .image-stage {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+
+            width: 100%;
+            height: 70vh;
+            min-height: 420px;
+            max-height: none;
+
+            padding: 5px;
+            overflow: auto;
+
+            border: 2px solid #64748b;
+            border-radius: 8px;
+
+            background:
+                linear-gradient(
+                    45deg,
+                    #252a32 25%,
+                    transparent 25%
+                ),
+                linear-gradient(
+                    -45deg,
+                    #252a32 25%,
+                    transparent 25%
+                ),
+                linear-gradient(
+                    45deg,
+                    transparent 75%,
+                    #252a32 75%
+                ),
+                linear-gradient(
+                    -45deg,
+                    transparent 75%,
+                    #252a32 75%
+                ),
+                #1d2128;
+
+            background-size: 24px 24px;
+            background-position:
+                0 0,
+                0 12px,
+                12px -12px,
+                -12px 0;
+
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        canvas {
+            display: block;
+            flex: none;
+
+            max-width: none;
+            height: auto;
+
+            cursor: crosshair;
+            touch-action: none;
+            user-select: none;
+
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        /*
+         * Crop previews
+         */
+        .crop-results {
+            display: grid;
+
+            grid-template-columns:
+                repeat(auto-fill, minmax(190px, 1fr));
+
+            gap: 14px;
+            margin-top: 14px;
+        }
+
+        .crop-card {
+            padding: 10px;
+
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+
+            background: #ffffff;
+            box-shadow: 0 2px 7px rgba(0, 0, 0, 0.08);
+        }
+
+        .crop-card img {
+            display: block;
+
+            width: 100%;
+            height: 150px;
+
+            object-fit: contain;
+
+            border: 1px solid #dddddd;
+            border-radius: 5px;
+
+            background: #eef0f3;
+        }
+
+        .crop-card p {
+            margin: 10px 0;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .crop-actions {
+            display: flex;
+            gap: 7px;
+        }
+
+        .crop-actions button {
+            flex: 1;
+            min-height: 44px;
+            padding: 8px;
+        }
+
+        .remove-button {
+            background: #dc2626;
+        }
+
+        .remove-button:hover {
+            background: #b91c1c;
+        }
+
+        .empty-message {
+            padding: 24px;
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+
+            color: #64748b;
+            text-align: center;
+            background: #ffffff;
+        }
+
+        /*
+         * Tablet
+         */
+        @media (max-width: 900px) {
+            body {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .instructions {
+                font-size: 14px;
+            }
+
+            .image-stage {
+                height: 68vh;
+                min-height: 390px;
+            }
+        }
+
+        /*
+         * Mobile
+         */
+        @media (max-width: 600px) {
+            body {
+                padding:
+                    max(8px, env(safe-area-inset-top))
+                    max(8px, env(safe-area-inset-right))
+                    max(8px, env(safe-area-inset-bottom))
+                    max(8px, env(safe-area-inset-left));
+            }
+
+            h1 {
+                margin-bottom: 8px;
+                font-size: 21px;
+                line-height: 1.25;
+            }
+
+            h2 {
+                font-size: 19px;
+            }
+
+            .instructions {
+                margin-bottom: 8px;
+                padding: 9px 11px;
+
+                font-size: 13px;
+                line-height: 1.45;
+            }
+
+            .toolbar {
+                grid-template-columns: repeat(2, 1fr);
+
+                gap: 7px;
+                margin-bottom: 8px;
+                padding: 6px;
+            }
+
+            button,
+            .file-label {
+                width: 100%;
+                min-height: 48px;
+                padding: 9px 7px;
+                font-size: 13px;
+            }
+
+            .status {
+                margin: 7px 0;
+                font-size: 14px;
+            }
+
+            .image-stage {
+                height: 65vh;
+                min-height: 360px;
+
+                padding: 3px;
+                border-width: 1px;
+                border-radius: 6px;
+            }
+
+            .crop-results {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .crop-card img {
+                height: auto;
+                max-height: 250px;
+            }
+
+            .crop-actions {
+                gap: 8px;
+            }
+
+            .crop-actions button {
+                min-height: 46px;
+            }
+        }
+
+        /*
+         * Very small phones
+         */
+        @media (max-width: 380px) {
+            .toolbar {
+                grid-template-columns: 1fr;
+            }
+
+            .image-stage {
+                height: 62vh;
+                min-height: 330px;
+            }
+        }
+
+        /*
+         * Mobile landscape
+         */
+        @media
+            (max-height: 550px)
+            and (orientation: landscape) {
+
+            .instructions {
+                display: none;
+            }
+
+            .toolbar {
+                position: static;
+
+                grid-template-columns:
+                    repeat(3, minmax(100px, 1fr));
+            }
+
+            .image-stage {
+                height: 72vh;
+                min-height: 260px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<main class="container">
+
+    <h1>Multiple Area Image Cropper</h1>
+
+    <div class="instructions">
+        تصویر پر drag کرکے crop rectangle بنائیں۔
+        Rectangle کے اندر drag کرکے اسے move کریں۔
+        Corners سے resize کریں اور سرخ
+        <strong>×</strong>
+        پر tap کرکے delete کریں۔
+    </div>
+
+    <div class="toolbar">
+
+        <label
+            for="imageInput"
+            class="file-label"
+        >
+            Choose Image
+        </label>
+
+        <input
+            id="imageInput"
+            type="file"
+            accept="image/*"
+        >
+
+        <button
+            id="fitButton"
+            type="button"
+            disabled
+        >
+            Fit Image
+        </button>
+
+        <button
+            id="actualSizeButton"
+            type="button"
+            class="secondary"
+            disabled
+        >
+            Actual Size
+        </button>
+
+        <button
+            id="undoButton"
+            type="button"
+            class="secondary"
+            disabled
+        >
+            Undo
+        </button>
+
+        <button
+            id="clearButton"
+            type="button"
+            class="danger"
+            disabled
+        >
+            Clear All
+        </button>
+
+        <button
+            id="downloadAllButton"
+            type="button"
+            disabled
+        >
+            Download All
+        </button>
+
+    </div>
+
+    <div id="status" class="status">
+        No image selected.
+    </div>
+
+    <div id="imageStage" class="image-stage">
+        <canvas id="imageCanvas"></canvas>
+    </div>
+
+    <h2>Cropped Areas</h2>
+
+    <div id="cropResults" class="crop-results">
+        <div class="empty-message">
+            Cropped images will appear here.
+        </div>
+    </div>
+
+</main>
+
+<script>
+    const imageInput =
+        document.getElementById("imageInput");
+
+    const canvas =
+        document.getElementById("imageCanvas");
+
+    const context =
+        canvas.getContext("2d");
+
+    const imageStage =
+        document.getElementById("imageStage");
+
+    const statusElement =
+        document.getElementById("status");
+
+    const cropResults =
+        document.getElementById("cropResults");
+
+    const fitButton =
+        document.getElementById("fitButton");
+
+    const actualSizeButton =
+        document.getElementById("actualSizeButton");
+
+    const undoButton =
+        document.getElementById("undoButton");
+
+    const clearButton =
+        document.getElementById("clearButton");
+
+    const downloadAllButton =
+        document.getElementById("downloadAllButton");
+
+    const sourceImage = new Image();
+
+    let selections = [];
+    let selectedIndex = -1;
+
+    let actionMode = null;
+    let activeHandle = null;
+
+    let startPoint = null;
+    let currentSelection = null;
+    let originalSelection = null;
+
+    /*
+     * Larger touch targets on mobile devices.
+     */
+    const isTouchDevice =
+        window.matchMedia("(pointer: coarse)").matches ||
+        "ontouchstart" in window;
+
+    const minimumSelectionSize =
+        isTouchDevice ? 20 : 12;
+
+    const handleSize =
+        isTouchDevice ? 22 : 14;
+
+    const hitAreaSize =
+        isTouchDevice ? 28 : 16;
+
+    const closeButtonRadius =
+        isTouchDevice ? 19 : 14;
+
+    imageInput.addEventListener(
+        "change",
+        loadImage
+    );
+
+    fitButton.addEventListener(
+        "click",
+        fitImage
+    );
+
+    actualSizeButton.addEventListener(
+        "click",
+        showActualSize
+    );
+
+    undoButton.addEventListener(
+        "click",
+        undoLastSelection
+    );
+
+    clearButton.addEventListener(
+        "click",
+        clearAllSelections
+    );
+
+    downloadAllButton.addEventListener(
+        "click",
+        downloadAllCrops
+    );
+
+    canvas.addEventListener(
+        "pointerdown",
+        handlePointerDown
+    );
+
+    canvas.addEventListener(
+        "pointermove",
+        handlePointerMove
+    );
+
+    canvas.addEventListener(
+        "pointerup",
+        handlePointerUp
+    );
+
+    canvas.addEventListener(
+        "pointercancel",
+        handlePointerCancel
+    );
+
+    canvas.addEventListener(
+        "contextmenu",
+        function (event) {
+            event.preventDefault();
+        }
+    );
+
+    window.addEventListener(
+        "keydown",
+        handleKeyboardDelete
+    );
+
+    /*
+     * Load selected image.
+     */
+    function loadImage(event) {
+        const file = event.target.files[0];
+
+        if (!file) {
+            return;
+        }
+
+        if (!file.type.startsWith("image/")) {
+            alert("Please select a valid image file.");
+            imageInput.value = "";
+            return;
+        }
+
+        const imageURL =
+            URL.createObjectURL(file);
+
+        sourceImage.onload = function () {
+            selections = [];
+            selectedIndex = -1;
+
+            fitImage();
+            renderEverything();
+
+            URL.revokeObjectURL(imageURL);
+        };
+
+        sourceImage.onerror = function () {
+            URL.revokeObjectURL(imageURL);
+
+            alert(
+                "This image could not be loaded."
+            );
+        };
+
+        sourceImage.src = imageURL;
+    }
+
+    /*
+     * Fit image inside workspace.
+     */
+    function fitImage() {
+        if (!sourceImage.naturalWidth) {
+            return;
+        }
+
+        const stageStyle =
+            window.getComputedStyle(imageStage);
+
+        const horizontalPadding =
+            parseFloat(stageStyle.paddingLeft) +
+            parseFloat(stageStyle.paddingRight);
+
+        const verticalPadding =
+            parseFloat(stageStyle.paddingTop) +
+            parseFloat(stageStyle.paddingBottom);
+
+        const availableWidth = Math.max(
+            250,
+            imageStage.clientWidth -
+                horizontalPadding -
+                4
+        );
+
+        const availableHeight = Math.max(
+            250,
+            imageStage.clientHeight -
+                verticalPadding -
+                4
+        );
+
+        const scale = Math.min(
+            1,
+            availableWidth /
+                sourceImage.naturalWidth,
+            availableHeight /
+                sourceImage.naturalHeight
+        );
+
+        setCanvasScale(scale);
+
+        imageStage.scrollLeft = 0;
+        imageStage.scrollTop = 0;
+    }
+
+    /*
+     * Display image at original size.
+     */
+    function showActualSize() {
+        if (!sourceImage.naturalWidth) {
+            return;
+        }
+
+        setCanvasScale(1);
+
+        imageStage.scrollLeft = 0;
+        imageStage.scrollTop = 0;
+    }
+
+    /*
+     * Preserve existing rectangles when canvas scale changes.
+     */
+    function setCanvasScale(scale) {
+        const oldWidth = canvas.width;
+        const oldHeight = canvas.height;
+
+        const newWidth = Math.max(
+            1,
+            Math.round(
+                sourceImage.naturalWidth * scale
+            )
+        );
+
+        const newHeight = Math.max(
+            1,
+            Math.round(
+                sourceImage.naturalHeight * scale
+            )
+        );
+
+        if (
+            oldWidth > 0 &&
+            oldHeight > 0 &&
+            selections.length > 0
+        ) {
+            const widthRatio =
+                newWidth / oldWidth;
+
+            const heightRatio =
+                newHeight / oldHeight;
+
+            selections = selections.map(
+                function (selection) {
+                    return {
+                        x:
+                            selection.x *
+                            widthRatio,
+
+                        y:
+                            selection.y *
+                            heightRatio,
+
+                        width:
+                            selection.width *
+                            widthRatio,
+
+                        height:
+                            selection.height *
+                            heightRatio
+                    };
+                }
+            );
+        }
+
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+
+        drawCanvas();
+    }
+
+    /*
+     * Convert pointer position to canvas coordinates.
+     */
+    function getPointerPosition(event) {
+        const canvasBox =
+            canvas.getBoundingClientRect();
+
+        const scaleX =
+            canvas.width / canvasBox.width;
+
+        const scaleY =
+            canvas.height / canvasBox.height;
+
+        return {
+            x: Math.max(
+                0,
+                Math.min(
+                    canvas.width,
+                    (
+                        event.clientX -
+                        canvasBox.left
+                    ) * scaleX
+                )
+            ),
+
+            y: Math.max(
+                0,
+                Math.min(
+                    canvas.height,
+                    (
+                        event.clientY -
+                        canvasBox.top
+                    ) * scaleY
+                )
+            )
+        };
+    }
+
+    function normalizeRectangle(
+        pointOne,
+        pointTwo
+    ) {
+        return {
+            x: Math.min(
+                pointOne.x,
+                pointTwo.x
+            ),
+
+            y: Math.min(
+                pointOne.y,
+                pointTwo.y
+            ),
+
+            width: Math.abs(
+                pointTwo.x -
+                pointOne.x
+            ),
+
+            height: Math.abs(
+                pointTwo.y -
+                pointOne.y
+            )
+        };
+    }
+
+    /*
+     * Close button appears slightly inside
+     * the rectangle's top-right corner.
+     */
+    function getCloseButtonPoint(selection) {
+        return {
+            x:
+                selection.x +
+                selection.width,
+
+            y: selection.y
+        };
+    }
+
+    function getResizeHandles(selection) {
+        return [
+            {
+                name: "northWest",
+                x: selection.x,
+                y: selection.y
+            },
+            {
+                name: "northEast",
+                x:
+                    selection.x +
+                    selection.width,
+                y: selection.y
+            },
+            {
+                name: "southEast",
+                x:
+                    selection.x +
+                    selection.width,
+                y:
+                    selection.y +
+                    selection.height
+            },
+            {
+                name: "southWest",
+                x: selection.x,
+                y:
+                    selection.y +
+                    selection.height
+            }
+        ];
+    }
+
+    function getDistance(
+        pointOne,
+        pointTwo
+    ) {
+        return Math.hypot(
+            pointOne.x - pointTwo.x,
+            pointOne.y - pointTwo.y
+        );
+    }
+
+    /*
+     * Detect close button, resize handles
+     * and rectangle body.
+     */
+    function findHitTarget(point) {
+        for (
+            let index =
+                selections.length - 1;
+
+            index >= 0;
+
+            index--
+        ) {
+            const selection =
+                selections[index];
+
+            const closePoint =
+                getCloseButtonPoint(
+                    selection
+                );
+
+            if (
+                getDistance(
+                    point,
+                    closePoint
+                ) <=
+                closeButtonRadius + 8
+            ) {
+                return {
+                    index: index,
+                    type: "close"
+                };
+            }
+
+            const handles =
+                getResizeHandles(selection);
+
+            for (const handle of handles) {
+                const handleIsHit =
+                    Math.abs(
+                        point.x - handle.x
+                    ) <= hitAreaSize &&
+                    Math.abs(
+                        point.y - handle.y
+                    ) <= hitAreaSize;
+
+                if (handleIsHit) {
+                    return {
+                        index: index,
+                        type: "resize",
+                        handle: handle.name
+                    };
+                }
+            }
+
+            const rectangleIsHit =
+                point.x >=
+                    selection.x -
+                    hitAreaSize &&
+
+                point.x <=
+                    selection.x +
+                    selection.width +
+                    hitAreaSize &&
+
+                point.y >=
+                    selection.y -
+                    hitAreaSize &&
+
+                point.y <=
+                    selection.y +
+                    selection.height +
+                    hitAreaSize;
+
+            if (rectangleIsHit) {
+                return {
+                    index: index,
+                    type: "move"
+                };
+            }
+        }
+
+        return null;
+    }
+
+    function handlePointerDown(event) {
+        if (!sourceImage.naturalWidth) {
+            return;
+        }
+
+        event.preventDefault();
+
+        const point =
+            getPointerPosition(event);
+
+        const hitTarget =
+            findHitTarget(point);
+
+        try {
+            canvas.setPointerCapture(
+                event.pointerId
+            );
+        } catch (error) {
+            // Pointer capture may not be supported.
+        }
+
+        startPoint = point;
+
+        if (hitTarget) {
+            selectedIndex =
+                hitTarget.index;
+
+            if (hitTarget.type === "close") {
+                selections.splice(
+                    hitTarget.index,
+                    1
+                );
+
+                selectedIndex = -1;
+                actionMode = null;
+
+                renderEverything();
+                return;
+            }
+
+            actionMode =
+                hitTarget.type;
+
+            activeHandle =
+                hitTarget.handle || null;
+
+            originalSelection = {
+                ...selections[selectedIndex]
+            };
+        } else {
+            selectedIndex = -1;
+            actionMode = "draw";
+
+            currentSelection = {
+                x: point.x,
+                y: point.y,
+                width: 0,
+                height: 0
+            };
+        }
+
+        drawCanvas();
+    }
+
+    function handlePointerMove(event) {
+        if (!sourceImage.naturalWidth) {
+            return;
+        }
+
+        const point =
+            getPointerPosition(event);
+
+        if (!actionMode) {
+            updatePointerCursor(point);
+            return;
+        }
+
+        event.preventDefault();
+
+        if (actionMode === "draw") {
+            currentSelection =
+                normalizeRectangle(
+                    startPoint,
+                    point
+                );
+        }
+
+        if (actionMode === "move") {
+            moveSelectedRectangle(point);
+        }
+
+        if (actionMode === "resize") {
+            resizeSelectedRectangle(point);
+        }
+
+        drawCanvas();
+    }
+
+    function handlePointerUp(event) {
+        if (!actionMode) {
+            return;
+        }
+
+        event.preventDefault();
+
+        if (
+            actionMode === "draw" &&
+            currentSelection &&
+            currentSelection.width >=
+                minimumSelectionSize &&
+            currentSelection.height >=
+                minimumSelectionSize
+        ) {
+            selections.push(
+                currentSelection
+            );
+
+            selectedIndex =
+                selections.length - 1;
+        }
+
+        resetPointerAction(event);
+        renderEverything();
+    }
+
+    function handlePointerCancel(event) {
+        resetPointerAction(event);
+        renderEverything();
+    }
+
+    function resetPointerAction(event) {
+        actionMode = null;
+        activeHandle = null;
+
+        startPoint = null;
+        currentSelection = null;
+        originalSelection = null;
+
+        try {
+            if (
+                canvas.hasPointerCapture(
+                    event.pointerId
+                )
+            ) {
+                canvas.releasePointerCapture(
+                    event.pointerId
+                );
+            }
+        } catch (error) {
+            // Ignore pointer capture errors.
+        }
+    }
+
+    function moveSelectedRectangle(point) {
+        if (
+            selectedIndex < 0 ||
+            !originalSelection
+        ) {
+            return;
+        }
+
+        const selection =
+            selections[selectedIndex];
+
+        const movementX =
+            point.x - startPoint.x;
+
+        const movementY =
+            point.y - startPoint.y;
+
+        selection.x = Math.max(
+            0,
+            Math.min(
+                canvas.width -
+                    selection.width,
+
+                originalSelection.x +
+                    movementX
+            )
+        );
+
+        selection.y = Math.max(
+            0,
+            Math.min(
+                canvas.height -
+                    selection.height,
+
+                originalSelection.y +
+                    movementY
+            )
+        );
+    }
+
+    function resizeSelectedRectangle(point) {
+        if (
+            selectedIndex < 0 ||
+            !originalSelection
+        ) {
+            return;
+        }
+
+        let fixedPoint = null;
+
+        if (activeHandle === "northWest") {
+            fixedPoint = {
+                x:
+                    originalSelection.x +
+                    originalSelection.width,
+
+                y:
+                    originalSelection.y +
+                    originalSelection.height
+            };
+        }
+
+        if (activeHandle === "northEast") {
+            fixedPoint = {
+                x: originalSelection.x,
+
+                y:
+                    originalSelection.y +
+                    originalSelection.height
+            };
+        }
+
+        if (activeHandle === "southEast") {
+            fixedPoint = {
+                x: originalSelection.x,
+                y: originalSelection.y
+            };
+        }
+
+        if (activeHandle === "southWest") {
+            fixedPoint = {
+                x:
+                    originalSelection.x +
+                    originalSelection.width,
+
+                y: originalSelection.y
+            };
+        }
+
+        if (!fixedPoint) {
+            return;
+        }
+
+        const limitedPoint = {
+            x: Math.max(
+                0,
+                Math.min(
+                    canvas.width,
+                    point.x
+                )
+            ),
+
+            y: Math.max(
+                0,
+                Math.min(
+                    canvas.height,
+                    point.y
+                )
+            )
+        };
+
+        const resizedRectangle =
+            normalizeRectangle(
+                fixedPoint,
+                limitedPoint
+            );
+
+        if (
+            resizedRectangle.width >=
+                minimumSelectionSize &&
+            resizedRectangle.height >=
+                minimumSelectionSize
+        ) {
+            selections[selectedIndex] =
+                resizedRectangle;
+        }
+    }
+
+    function updatePointerCursor(point) {
+        const target =
+            findHitTarget(point);
+
+        if (!target) {
+            canvas.style.cursor =
+                "crosshair";
+            return;
+        }
+
+        if (target.type === "close") {
+            canvas.style.cursor =
+                "pointer";
+            return;
+        }
+
+        if (target.type === "move") {
+            canvas.style.cursor =
+                "move";
+            return;
+        }
+
+        if (target.type === "resize") {
+            canvas.style.cursor =
+                getResizeCursor(
+                    target.handle
+                );
+        }
+    }
+
+    function getResizeCursor(handle) {
+        if (
+            handle === "northWest" ||
+            handle === "southEast"
+        ) {
+            return "nwse-resize";
+        }
+
+        return "nesw-resize";
+    }
+
+    /*
+     * Draw image and all crop rectangles.
+     */
+    function drawCanvas() {
+        context.clearRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+        if (!sourceImage.naturalWidth) {
+            return;
+        }
+
+        context.drawImage(
+            sourceImage,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+        selections.forEach(
+            function (selection, index) {
+                drawSelection(
+                    selection,
+                    index,
+                    index === selectedIndex
+                );
+            }
+        );
+
+        if (currentSelection) {
+            drawSelection(
+                currentSelection,
+                selections.length,
+                true
+            );
+        }
+    }
+
+    function drawSelection(
+        selection,
+        index,
+        isSelected
+    ) {
+        context.save();
+
+        context.fillStyle = isSelected
+            ? "rgba(37, 99, 235, 0.22)"
+            : "rgba(16, 185, 129, 0.18)";
+
+        context.strokeStyle = isSelected
+            ? "#1d4ed8"
+            : "#059669";
+
+        context.lineWidth =
+            isSelected ? 4 : 3;
+
+        context.fillRect(
+            selection.x,
+            selection.y,
+            selection.width,
+            selection.height
+        );
+
+        context.strokeRect(
+            selection.x,
+            selection.y,
+            selection.width,
+            selection.height
+        );
+
+        drawNumberLabel(
+            selection,
+            index + 1,
+            isSelected
+        );
+
+        if (isSelected) {
+            drawResizeHandles(selection);
+        }
+
+        drawCloseButton(selection);
+
+        context.restore();
+    }
+
+    function drawNumberLabel(
+        selection,
+        number,
+        isSelected
+    ) {
+        const labelWidth =
+            isTouchDevice ? 36 : 30;
+
+        const labelHeight =
+            isTouchDevice ? 29 : 24;
+
+        context.fillStyle = isSelected
+            ? "#1d4ed8"
+            : "#059669";
+
+        context.fillRect(
+            selection.x,
+            selection.y,
+            labelWidth,
+            labelHeight
+        );
+
+        context.fillStyle = "#ffffff";
+
+        context.font =
+            isTouchDevice
+                ? "bold 17px Arial"
+                : "bold 15px Arial";
+
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+
+        context.fillText(
+            number,
+            selection.x +
+                labelWidth / 2,
+
+            selection.y +
+                labelHeight / 2
+        );
+    }
+
+    function drawResizeHandles(selection) {
+        const handles =
+            getResizeHandles(selection);
+
+        handles.forEach(
+            function (handle) {
+                context.fillStyle =
+                    "#ffffff";
+
+                context.strokeStyle =
+                    "#1d4ed8";
+
+                context.lineWidth = 3;
+
+                context.fillRect(
+                    handle.x -
+                        handleSize / 2,
+
+                    handle.y -
+                        handleSize / 2,
+
+                    handleSize,
+                    handleSize
+                );
+
+                context.strokeRect(
+                    handle.x -
+                        handleSize / 2,
+
+                    handle.y -
+                        handleSize / 2,
+
+                    handleSize,
+                    handleSize
+                );
+            }
+        );
+    }
+
+    function drawCloseButton(selection) {
+        const closePoint =
+            getCloseButtonPoint(selection);
+
+        context.beginPath();
+
+        context.arc(
+            closePoint.x,
+            closePoint.y,
+            closeButtonRadius,
+            0,
+            Math.PI * 2
+        );
+
+        context.fillStyle = "#dc2626";
+        context.fill();
+
+        context.strokeStyle = "#ffffff";
+        context.lineWidth =
+            isTouchDevice ? 3.5 : 2.5;
+
+        const crossSize =
+            isTouchDevice ? 7 : 5;
+
+        context.beginPath();
+
+        context.moveTo(
+            closePoint.x - crossSize,
+            closePoint.y - crossSize
+        );
+
+        context.lineTo(
+            closePoint.x + crossSize,
+            closePoint.y + crossSize
+        );
+
+        context.moveTo(
+            closePoint.x + crossSize,
+            closePoint.y - crossSize
+        );
+
+        context.lineTo(
+            closePoint.x - crossSize,
+            closePoint.y + crossSize
+        );
+
+        context.stroke();
+    }
+
+    /*
+     * Convert displayed canvas rectangle
+     * to original image resolution.
+     */
+    function getSourceRectangle(selection) {
+        const scaleX =
+            sourceImage.naturalWidth /
+            canvas.width;
+
+        const scaleY =
+            sourceImage.naturalHeight /
+            canvas.height;
+
+        const sourceX = Math.max(
+            0,
+            Math.round(
+                selection.x * scaleX
+            )
+        );
+
+        const sourceY = Math.max(
+            0,
+            Math.round(
+                selection.y * scaleY
+            )
+        );
+
+        const sourceWidth = Math.max(
+            1,
+            Math.round(
+                selection.width * scaleX
+            )
+        );
+
+        const sourceHeight = Math.max(
+            1,
+            Math.round(
+                selection.height * scaleY
+            )
+        );
+
+        return {
+            x: sourceX,
+            y: sourceY,
+
+            width: Math.min(
+                sourceWidth,
+                sourceImage.naturalWidth -
+                    sourceX
+            ),
+
+            height: Math.min(
+                sourceHeight,
+                sourceImage.naturalHeight -
+                    sourceY
+            )
+        };
+    }
+
+    function createCroppedCanvas(selection) {
+        const sourceArea =
+            getSourceRectangle(selection);
+
+        const cropCanvas =
+            document.createElement("canvas");
+
+        const cropContext =
+            cropCanvas.getContext("2d");
+
+        cropCanvas.width =
+            sourceArea.width;
+
+        cropCanvas.height =
+            sourceArea.height;
+
+        cropContext.drawImage(
+            sourceImage,
+
+            sourceArea.x,
+            sourceArea.y,
+            sourceArea.width,
+            sourceArea.height,
+
+            0,
+            0,
+            sourceArea.width,
+            sourceArea.height
+        );
+
+        return cropCanvas;
+    }
+
+    /*
+     * Show preview cards.
+     */
+    function renderCropPreviews() {
+        cropResults.innerHTML = "";
+
+        if (selections.length === 0) {
+            const emptyMessage =
+                document.createElement("div");
+
+            emptyMessage.className =
+                "empty-message";
+
+            emptyMessage.textContent =
+                "Cropped images will appear here.";
+
+            cropResults.appendChild(
+                emptyMessage
+            );
+
+            return;
+        }
+
+        selections.forEach(
+            function (selection, index) {
+                const cropCanvas =
+                    createCroppedCanvas(
+                        selection
+                    );
+
+                const card =
+                    document.createElement(
+                        "div"
+                    );
+
+                card.className =
+                    "crop-card";
+
+                const preview =
+                    document.createElement(
+                        "img"
+                    );
+
+                preview.src =
+                    cropCanvas.toDataURL(
+                        "image/png"
+                    );
+
+                preview.alt =
+                    `Cropped area ${index + 1}`;
+
+                preview.addEventListener(
+                    "click",
+                    function () {
+                        selectedIndex = index;
+                        drawCanvas();
+                    }
+                );
+
+                const details =
+                    document.createElement(
+                        "p"
+                    );
+
+                details.textContent =
+                    `Area ${index + 1}: ` +
+                    `${cropCanvas.width} × ` +
+                    `${cropCanvas.height} pixels`;
+
+                const actions =
+                    document.createElement(
+                        "div"
+                    );
+
+                actions.className =
+                    "crop-actions";
+
+                const downloadButton =
+                    document.createElement(
+                        "button"
+                    );
+
+                downloadButton.type =
+                    "button";
+
+                downloadButton.textContent =
+                    "Download";
+
+                const removeButton =
+                    document.createElement(
+                        "button"
+                    );
+
+                removeButton.type =
+                    "button";
+
+                removeButton.textContent =
+                    "Remove";
+
+                removeButton.className =
+                    "remove-button";
+
+                downloadButton.addEventListener(
+                    "click",
+                    function () {
+                        downloadCrop(index);
+                    }
+                );
+
+                removeButton.addEventListener(
+                    "click",
+                    function () {
+                        selections.splice(
+                            index,
+                            1
+                        );
+
+                        selectedIndex = -1;
+
+                        renderEverything();
+                    }
+                );
+
+                actions.append(
+                    downloadButton,
+                    removeButton
+                );
+
+                card.append(
+                    preview,
+                    details,
+                    actions
+                );
+
+                cropResults.appendChild(
+                    card
+                );
+            }
+        );
+    }
+
+    /*
+     * Download one crop.
+     */
+    function downloadCrop(index) {
+        const selection =
+            selections[index];
+
+        if (!selection) {
+            return;
+        }
+
+        const cropCanvas =
+            createCroppedCanvas(selection);
+
+        cropCanvas.toBlob(
+            function (blob) {
+                if (!blob) {
+                    alert(
+                        "Crop could not be created."
+                    );
+                    return;
+                }
+
+                downloadBlob(
+                    blob,
+                    `crop-${index + 1}.png`
+                );
+            },
+            "image/png"
+        );
+    }
+
+    function downloadBlob(
+        blob,
+        fileName
+    ) {
+        const blobURL =
+            URL.createObjectURL(blob);
+
+        const downloadLink =
+            document.createElement("a");
+
+        downloadLink.href = blobURL;
+        downloadLink.download = fileName;
+
+        document.body.appendChild(
+            downloadLink
+        );
+
+        downloadLink.click();
+        downloadLink.remove();
+
+        setTimeout(
+            function () {
+                URL.revokeObjectURL(
+                    blobURL
+                );
+            },
+            1000
+        );
+    }
+
+    /*
+     * Some mobile browsers may ask permission
+     * before downloading multiple files.
+     */
+    async function downloadAllCrops() {
+        for (
+            let index = 0;
+            index < selections.length;
+            index++
+        ) {
+            downloadCrop(index);
+
+            await delay(350);
+        }
+    }
+
+    function delay(milliseconds) {
+        return new Promise(
+            function (resolve) {
+                setTimeout(
+                    resolve,
+                    milliseconds
+                );
+            }
+        );
+    }
+
+    function undoLastSelection() {
+        if (selections.length === 0) {
+            return;
+        }
+
+        selections.pop();
+        selectedIndex = -1;
+
+        renderEverything();
+    }
+
+    function clearAllSelections() {
+        selections = [];
+        selectedIndex = -1;
+
+        renderEverything();
+    }
+
+    function handleKeyboardDelete(event) {
+        const deleteKeyPressed =
+            event.key === "Delete" ||
+            event.key === "Backspace";
+
+        if (
+            deleteKeyPressed &&
+            selectedIndex >= 0
+        ) {
+            event.preventDefault();
+
+            selections.splice(
+                selectedIndex,
+                1
+            );
+
+            selectedIndex = -1;
+
+            renderEverything();
+        }
+    }
+
+    function updateControls() {
+        const imageLoaded =
+            Boolean(
+                sourceImage.naturalWidth
+            );
+
+        const hasSelections =
+            selections.length > 0;
+
+        fitButton.disabled =
+            !imageLoaded;
+
+        actualSizeButton.disabled =
+            !imageLoaded;
+
+        undoButton.disabled =
+            !hasSelections;
+
+        clearButton.disabled =
+            !hasSelections;
+
+        downloadAllButton.disabled =
+            !hasSelections;
+
+        if (!imageLoaded) {
+            statusElement.textContent =
+                "No image selected.";
+        } else {
+            statusElement.textContent =
+                `${selections.length} crop area(s) selected.`;
+        }
+    }
+
+    function renderEverything() {
+        drawCanvas();
+        renderCropPreviews();
+        updateControls();
+    }
+
+    /*
+     * Redraw after screen resize.
+     */
+    let resizeTimer;
+
+    window.addEventListener(
+        "resize",
+        function () {
+            clearTimeout(resizeTimer);
+
+            resizeTimer = setTimeout(
+                function () {
+                    if (
+                        sourceImage.naturalWidth &&
+                        selections.length === 0
+                    ) {
+                        fitImage();
+                    } else {
+                        drawCanvas();
+                    }
+                },
+                150
+            );
+        }
+    );
+
+    /*
+     * Refit after phone orientation changes.
+     */
+    window.addEventListener(
+        "orientationchange",
+        function () {
+            setTimeout(
+                function () {
+                    if (
+                        sourceImage.naturalWidth
+                    ) {
+                        fitImage();
+                        renderEverything();
+                    }
+                },
+                300
+            );
+        }
+    );
+
+    updateControls();
+</script>
+
+</body>
+</html>
